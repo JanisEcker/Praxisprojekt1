@@ -1,0 +1,468 @@
+{
+  "name": "BestimmungSentimentVergleichMitScore",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        -16
+      ],
+      "id": "7a76aa7e-ffb1-40ff-83fb-88331a875453",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, review_score, review_text FROM reviews_data LIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -832,
+        -16
+      ],
+      "id": "907654c6-b3da-4923-b646-c6914fce746d",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "dFbzbLCmTMxlG8AO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.review_text }}",
+        "options": {
+          "categories": "Positive, Neutral, Negative",
+          "batching": {
+            "batchSize": 10
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.sentimentAnalysis",
+      "typeVersion": 1.1,
+      "position": [
+        -624,
+        -16
+      ],
+      "id": "eb0e768d-e9eb-4b5f-9c9d-1d3f3a9caa4a",
+      "name": "Sentiment Analysis"
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        272
+      ],
+      "id": "8cff0564-f77e-431c-af2d-89b49ea5896d",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "LQU1VLpdOARBkkVJ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let i = 0\n\nfor (const item of $input.all()) {\n  if (item.json.review_score >= 4 && item.json.sentimentAnalysis.category == \"Positive\" || \n     item.json.review_score == 3 && item.json.sentimentAnalysis.category == \"Neutral\" || item.json.review_score <= 2 && item.json.sentimentAnalysis.category == \"Negative\") {\n    item.json.matches = true\n    i = i+1\n  } else {\n    item.json.matches = false\n  }\n}\n\nconst total = $input.all().length;\nconst notMatching = total - i;\nconst rate = notMatching/total;\n\nreturn [\n  {\n    json: {\n      matches: i,\n      notMatches: notMatching,\n      total: total,\n      rate: rate,\n      data: $input.all()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        0
+      ],
+      "id": "b6564e4c-cccc-471b-b510-d0d6942ed18f",
+      "name": "Code in JavaScript",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -240,
+        -16
+      ],
+      "id": "66e9063f-d3a1-4e79-8a7c-0fec7613ec39",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "model": "llama3:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        752
+      ],
+      "id": "1663a782-0dff-49ab-8d22-29236a27e103",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "pO1Qsr6PqvbE5qXk",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -896,
+        576
+      ],
+      "id": "fcf606d7-d07e-4269-883b-b68db76934b2",
+      "name": "When chat message received",
+      "webhookId": "30bf8625-650b-4049-a6d6-48f9c567cde6"
+    },
+    {
+      "parameters": {
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Please answer like an pirate"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -688,
+        576
+      ],
+      "id": "b20788a2-1eb6-4934-b357-70d28647e8e8",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6cd79a3a-8fea-4a2a-80e2-75db1d72931c",
+              "name": "data",
+              "value": "={{ $json.data }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        176,
+        0
+      ],
+      "id": "c172cc2f-f636-40e9-b691-ad19121a4ec6",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        576,
+        -160
+      ],
+      "id": "e5db31b5-910a-4bd7-9e80-4a167be50edb",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/share/sentiment1_{{$now.toISO() .replace(/\\D/g, '')}}.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        736,
+        -160
+      ],
+      "id": "6e77b934-af3b-4524-8cf5-1752fec43e10",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nfor (const item of $input.all()[0].json.data) {\n  output.push({\n    id: item.json.id,\n    matches: item.json.matches,\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -160
+      ],
+      "id": "3dcb8a2e-e95d-4a5a-b9f8-ca269397fe27",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e59492b6-2144-4584-a861-5fcbb5d955f8",
+              "name": "matches",
+              "value": "={{ $json.matches }}",
+              "type": "number"
+            },
+            {
+              "id": "d0d2fb45-9d94-449d-ae9b-d1ba1fc97167",
+              "name": "notMatches",
+              "value": "={{ $json.notMatches }}",
+              "type": "number"
+            },
+            {
+              "id": "90362cdc-16ed-48e9-8f41-75e64f877c80",
+              "name": "total",
+              "value": "={{ $json.total }}",
+              "type": "number"
+            },
+            {
+              "id": "e4ddd484-ba63-4d22-9498-f21173a257f7",
+              "name": "rate",
+              "value": "={{ $json.rate }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        176,
+        176
+      ],
+      "id": "bc2063f2-6fe1-40a0-8e05-78779be4d68d",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/share/sentiment1_{{$now.toISO() .replace(/\\D/g, '')}}_res.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        704,
+        144
+      ],
+      "id": "a27d2744-6df6-4266-9f3e-a0183c4c3acb",
+      "name": "Read/Write Files from Disk1"
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        160
+      ],
+      "id": "7354e213-657d-47a8-8812-347d7e3f2911",
+      "name": "Convert to File1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Sentiment Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Sentiment Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sentiment Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fc1f9e3d-bdd4-4afe-bd78-672602bc78d8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7b6003ea68d994fa24a4713e6216a47fa8a88b2c1ad86e4aea5e781ef95bc40d"
+  },
+  "id": "jDvkUjTxCb8Rjx1Z",
+  "tags": []
+}

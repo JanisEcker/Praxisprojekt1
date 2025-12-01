@@ -2,3 +2,4 @@ Data/
 !Data/*.png
 !Data/plots/
 /Books_rating.zip
+.env
