@@ -1,0 +1,430 @@
+{
+  "name": "ReviewSearchAgent",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "insert",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        288,
+        -512
+      ],
+      "id": "130ced16-cb0b-4661-9eef-d69a9da49151",
+      "name": "Postgres PGVector Store",
+      "credentials": {
+        "postgres": {
+          "id": "dFbzbLCmTMxlG8AO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        -512
+      ],
+      "id": "ccd1451b-5ca8-4b2d-9c54-972f10deb579",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT title, review_text FROM reviews_data LIMIT 2;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        80,
+        -512
+      ],
+      "id": "9ee688d7-37fa-4548-bca0-be0c7df62db1",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "dFbzbLCmTMxlG8AO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        272,
+        160
+      ],
+      "id": "e8f84de3-aa27-4115-8d85-496bb4331223",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "qLkPGVemWczwZ2BC",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "bookTitleId",
+                "value": "={{ $json.title }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        -352
+      ],
+      "id": "48e5d525-5550-4d9f-b5a6-2782e48e1796",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "chunkSize": 10000,
+        "chunkOverlap": 200,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        496,
+        -240
+      ],
+      "id": "02fb1926-3fd7-4658-855a-63156a8bbb47",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -304,
+        -80
+      ],
+      "id": "015ebcc5-b78d-43bc-a217-a407147a0bee",
+      "name": "When chat message received",
+      "webhookId": "be126c03-19b6-4466-a06c-53777a54abe7"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a helpful AI agent whose task is to help users find a book that best matches their requirements.\n\nThe agent is triggered whenever a new chat message from a user is received. You must process each request sequentially and strictly follow the steps described below.\n\nOverall rules: You must execute all steps in the defined order. You are not allowed to perform multiple searches in the vector database using the same or equivalent input. You may only perform a new vector search after receiving new and more specific information from the user. If results are rejected, you must briefly explain why.\n\nFirst step: Use the user’s message to perform a semantic search in the PostgreSQL vector database for similar comments or reviews. You will receive up to twenty candidate comments. Carefully evaluate these comments and select the one that best matches the user’s stated requirements. If none of the returned comments are suitable, inform the user that no relevant content could be found and ask them to provide a more precise or refined description. In this case, do not perform another vector search until new information is provided. It is explicitly forbidden to search the vector database multiple times with the same or previously evaluated content.\n\nSecond step: Once you have selected the most suitable comment, extract its bookTitleId. Use this bookTitleId as the primary key to query the relational database and retrieve the full book information.\n\nThird step: Use the dedicated tool to retrieve thirty random additional comments related to the same book. Analyze these comments together with the original one to determine whether the book truly fulfills the user’s requirements. If the book matches the requirements, recommend it to the user and briefly explain your reasoning. If the book does not match, repeat the second step and third step using the next most suitable comment from the original vector search results. Do not perform another vector database search during this process.\n\nFinal behavior: If a suitable book is found, present it clearly to the user. If no suitable book can be confirmed after evaluating all available candidates, inform the user and ask for further clarification.",
+          "enableStreaming": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -96,
+        -80
+      ],
+      "id": "b0c05068-9546-4203-a575-973977280c66",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        128
+      ],
+      "id": "425c4619-4151-40dc-8e32-a4ba8db772c8",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "LQU1VLpdOARBkkVJ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        128
+      ],
+      "id": "8c2f5bc3-02b0-4016-8c51-9c024eef1ada",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search similar reviews in a database",
+        "topK": 20,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        16
+      ],
+      "id": "a8736b27-7004-4616-994b-1ef00ba3dad5",
+      "name": "Postgres PGVector Store1",
+      "credentials": {
+        "postgres": {
+          "id": "dFbzbLCmTMxlG8AO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Select rows from a table in a relational database to find more comments about this book.",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "reviews_data",
+          "mode": "list",
+          "cachedResultName": "reviews_data"
+        },
+        "limit": 30,
+        "where": {
+          "values": [
+            {
+              "column": "title",
+              "condition": "LIKE",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        160,
+        192
+      ],
+      "id": "84393347-7acc-42e8-b592-44ff9836fa65",
+      "name": "Select book comments",
+      "credentials": {
+        "postgres": {
+          "id": "dFbzbLCmTMxlG8AO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Select rows from a table in a relational database to do research on books",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "books_data",
+          "mode": "list",
+          "cachedResultName": "books_data"
+        },
+        "limit": 5,
+        "where": {
+          "values": [
+            {
+              "column": "title",
+              "condition": "LIKE",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        48,
+        144
+      ],
+      "id": "df455b0c-d3c6-40b7-a7bf-e4ccdfa8dbe3",
+      "name": "Select book",
+      "credentials": {
+        "postgres": {
+          "id": "dFbzbLCmTMxlG8AO",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Postgres PGVector Store": {
+      "ai_tool": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Postgres PGVector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres PGVector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select book comments": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select book": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "49fcab38-8b18-4eaf-b270-235c86af38ea",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7b6003ea68d994fa24a4713e6216a47fa8a88b2c1ad86e4aea5e781ef95bc40d"
+  },
+  "id": "hL7H1rfXTMpiqUXC",
+  "tags": []
+}

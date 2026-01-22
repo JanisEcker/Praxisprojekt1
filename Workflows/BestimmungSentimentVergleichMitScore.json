@@ -15,7 +15,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, review_score, review_text FROM reviews_data LIMIT 100;",
+        "query": "SELECT id, review_score, review_text FROM reviews_data LIMIT 2000;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -38,8 +38,9 @@
         "inputText": "={{ $json.review_text }}",
         "options": {
           "categories": "Positive, Neutral, Negative",
+          "includeDetailedResults": true,
           "batching": {
-            "batchSize": 10
+            "batchSize": 20
           }
         }
       },
@@ -60,8 +61,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -560,
-        272
+        -624,
+        160
       ],
       "id": "8cff0564-f77e-431c-af2d-89b49ea5896d",
       "name": "OpenRouter Chat Model",
@@ -74,7 +75,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let i = 0\n\nfor (const item of $input.all()) {\n  if (item.json.review_score >= 4 && item.json.sentimentAnalysis.category == \"Positive\" || \n     item.json.review_score == 3 && item.json.sentimentAnalysis.category == \"Neutral\" || item.json.review_score <= 2 && item.json.sentimentAnalysis.category == \"Negative\") {\n    item.json.matches = true\n    i = i+1\n  } else {\n    item.json.matches = false\n  }\n}\n\nconst total = $input.all().length;\nconst notMatching = total - i;\nconst rate = notMatching/total;\n\nreturn [\n  {\n    json: {\n      matches: i,\n      notMatches: notMatching,\n      total: total,\n      rate: rate,\n      data: $input.all()\n    }\n  }\n];"
+        "jsCode": "let i = 0\n\nfor (const item of $input.all()) {\n  if (item.json.review_score >= 4 && item.json.sentimentAnalysis.category == \"Positive\" || \n     item.json.review_score == 3 && item.json.sentimentAnalysis.category == \"Neutral\" || item.json.review_score <= 2 && item.json.sentimentAnalysis.category == \"Negative\") {\n    item.json.matches = true\n    i = i+1\n  } else {\n    item.json.matches = false\n  }\n}\n\nconst total = $input.all().length;\nconst notMatching = total - i;\nconst rate = 100 - notMatching/total;\n\nreturn [\n  {\n    json: {\n      matches: i,\n      notMatches: notMatching,\n      total: total,\n      rate: rate,\n      data: $input.all()\n    }\n  }\n];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -98,60 +99,6 @@
       ],
       "id": "66e9063f-d3a1-4e79-8a7c-0fec7613ec39",
       "name": "Merge"
-    },
-    {
-      "parameters": {
-        "model": "llama3:latest",
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
-      "typeVersion": 1,
-      "position": [
-        -688,
-        752
-      ],
-      "id": "1663a782-0dff-49ab-8d22-29236a27e103",
-      "name": "Ollama Chat Model",
-      "credentials": {
-        "ollamaApi": {
-          "id": "pO1Qsr6PqvbE5qXk",
-          "name": "Ollama account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
-      "typeVersion": 1.4,
-      "position": [
-        -896,
-        576
-      ],
-      "id": "fcf606d7-d07e-4269-883b-b68db76934b2",
-      "name": "When chat message received",
-      "webhookId": "30bf8625-650b-4049-a6d6-48f9c567cde6"
-    },
-    {
-      "parameters": {
-        "messages": {
-          "messageValues": [
-            {
-              "message": "Please answer like an pirate"
-            }
-          ]
-        },
-        "batching": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.7,
-      "position": [
-        -688,
-        576
-      ],
-      "id": "b20788a2-1eb6-4934-b357-70d28647e8e8",
-      "name": "Basic LLM Chain"
     },
     {
       "parameters": {
@@ -184,8 +131,8 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        576,
-        -160
+        384,
+        112
       ],
       "id": "e5db31b5-910a-4bd7-9e80-4a167be50edb",
       "name": "Convert to File"
@@ -199,8 +146,8 @@
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
-        736,
-        -160
+        384,
+        272
       ],
       "id": "6e77b934-af3b-4524-8cf5-1752fec43e10",
       "name": "Read/Write Files from Disk"
@@ -212,8 +159,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        400,
-        -160
+        384,
+        -48
       ],
       "id": "3dcb8a2e-e95d-4a5a-b9f8-ca269397fe27",
       "name": "Code in JavaScript1"
@@ -268,8 +215,8 @@
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
-        704,
-        144
+        -208,
+        320
       ],
       "id": "a27d2744-6df6-4266-9f3e-a0183c4c3acb",
       "name": "Read/Write Files from Disk1"
@@ -282,11 +229,87 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        416,
-        160
+        -400,
+        320
       ],
       "id": "7354e213-657d-47a8-8812-347d7e3f2911",
       "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"text\": \"text\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -832,
+        464
+      ],
+      "id": "c290257b-b7ae-4da9-9ef6-7488e6938de3",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f86881e2-4f09-438f-9eee-671e632022f6",
+              "name": "matches",
+              "value": "={{ $('Edit Fields1').item.json.matches }}",
+              "type": "number"
+            },
+            {
+              "id": "b10ea2ad-420d-4c46-91ad-3e58d3d07598",
+              "name": "notMatches",
+              "value": "={{ $('Edit Fields1').item.json.notMatches }}",
+              "type": "number"
+            },
+            {
+              "id": "75fd5bce-2bce-4486-aeeb-d07300554c10",
+              "name": "total",
+              "value": "={{ $('Edit Fields1').item.json.total }}",
+              "type": "number"
+            },
+            {
+              "id": "965c8e64-2ce4-436c-b3ad-0f6661f54f33",
+              "name": "rate",
+              "value": "={{ $('Edit Fields1').item.json.rate }}",
+              "type": "number"
+            },
+            {
+              "id": "30d07174-0216-44a5-8a9f-a27fd9ae1a3b",
+              "name": "result_text",
+              "value": "={{ $json.output.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -608,
+        320
+      ],
+      "id": "2f3dffa0-d229-4a76-85f5-7b75bb8796a0",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create a concise and coherent report of approximately five sentences based on the provided sentiment-analysis summary data. \nThe data reflects how well the sentiment of user review texts aligns with the star ratings given by users. \n“Total” represents the number of analyzed reviews, “matches” shows how many review texts correspond to the given star rating, and “notMatches” indicates the number of mismatches. \n“Rate” expresses the percentage of reviews in which the sentiment correctly matches the assigned star rating. \nWrite the report in complete sentences and provide a short, human-readable interpretation of the results.\n\nMatches: {{ $json.matches }}\nNot matches: {{ $json.notMatches }}\nTotal: {{ $json.total }}\nMatch rate: {{ $json.rate }}%",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -976,
+        320
+      ],
+      "id": "ef28fd7a-883d-41cf-a4f7-ebff8dcf3c13",
+      "name": "Generate Report"
     }
   ],
   "pinData": {},
@@ -318,6 +341,11 @@
         [
           {
             "node": "Sentiment Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Generate Report",
             "type": "ai_languageModel",
             "index": 0
           }
@@ -355,28 +383,6 @@
           {
             "node": "Code in JavaScript",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "When chat message received": {
-      "main": [
-        [
-          {
-            "node": "Basic LLM Chain",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Ollama Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Basic LLM Chain",
-            "type": "ai_languageModel",
             "index": 0
           }
         ]
@@ -435,7 +441,7 @@
       "main": [
         [
           {
-            "node": "Convert to File1",
+            "node": "Generate Report",
             "type": "main",
             "index": 0
           }
@@ -452,13 +458,51 @@
           }
         ]
       ]
+    },
+    "Read/Write Files from Disk1": {
+      "main": [
+        []
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "fc1f9e3d-bdd4-4afe-bd78-672602bc78d8",
+  "versionId": "0fdd4059-797b-4b6e-b04c-30d77e76a9b5",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "7b6003ea68d994fa24a4713e6216a47fa8a88b2c1ad86e4aea5e781ef95bc40d"

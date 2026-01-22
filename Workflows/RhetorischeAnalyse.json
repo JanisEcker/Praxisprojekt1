@@ -1,0 +1,361 @@
+{
+  "name": "RhetorischeAnalyse",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        16
+      ],
+      "id": "2ef3aece-93a3-4ee4-86fb-d72f3730c565",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, review_text, review_total_votes, review_helpful_votes FROM reviews_data LIMIT 10;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -208,
+        16
+      ],
+      "id": "3e182b90-e0a2-487c-80af-57306c49eecf",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "dFbzbLCmTMxlG8AO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -304
+      ],
+      "id": "3d99828d-80e2-4c7a-84cb-b1cf2a6feb66",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "LQU1VLpdOARBkkVJ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"clarity\": \"number (0–1)\",\n  \"structure\": \"number (0–1)\",\n  \"precision\": \"number (0–1)\",\n  \"tone\": \"number (0–1)\",\n  \"grammar\": \"number (0–1)\",\n  \"information\": \"number (0–1)\",\n  \"writing_quality_score\": \"number (0–1)\",\n  \"helpfulness_rate\": \"number (0–1)\",\n  \"correlation\": \"'yes' | 'no' | 'uncertain'\",\n  \"comment\": \"short explanation\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        -304
+      ],
+      "id": "cc429ce8-99fd-4cdf-8842-bd8fac586c71",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": "ministral-3:3b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -304
+      ],
+      "id": "645c79f2-77e3-45c9-a00f-9a454bd84de4",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "qLkPGVemWczwZ2BC",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-5-nano"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        240
+      ],
+      "id": "0be48440-5468-4074-89c4-2f476af2f0d8",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "6xr6V3T3SRNn70oz",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmOutput = $input.all();\n//console.log(llmOutput[0].json.text)\n\nlet parsed = [];\n\nllmOutput.forEach(e => {\n    const item = typeof e.json.text === 'string' ? JSON.parse(e.json.text) : e.json.text;\n    parsed.push(item);\n});\n\nconsole.log(parsed)\nreturn parsed\nreturn [\n    {\n        json: {\n            clarity: parsed.clarity,\n            structure: parsed.structure,\n            precision: parsed.precision,\n            tone: parsed.tone,\n            grammar: parsed.grammar,\n            information: parsed.information,\n            writing_quality_score: parsed.writing_quality_score,\n            helpfulness_rate: parsed.helpfulness_rate,\n            correlation: parsed.correlation,\n            comment: parsed.comment\n        }\n    }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        16
+      ],
+      "id": "915140ab-5698-4ba7-bc1a-40c9f7d3ff1c",
+      "name": "OutputFormatter"
+    },
+    {
+      "parameters": {
+        "jsCode": "const reviews = $input.all().map(item => item.json); // n8n Input Items\n\nconsole.log(reviews)\n\nlet sumScores = {\n    clarity: 0,\n    structure: 0,\n    precision: 0,\n    tone: 0,\n    grammar: 0,\n    information: 0,\n    writing_quality_score: 0,\n    helpfulness_rate: 0\n};\n\nlet count = reviews.length;\nlet correlationYes = 0;\n\nreviews.forEach(r => {\n    sumScores.clarity += Number(r.clarity);\n    sumScores.structure += Number(r.structure);\n    sumScores.precision += Number(r.precision);\n    sumScores.tone += Number(r.tone);\n    sumScores.grammar += Number(r.grammar);\n    sumScores.information += Number(r.information);\n    sumScores.writing_quality_score += Number(r.writing_quality_score);\n    sumScores.helpfulness_rate += Number(r.helpfulness_rate);\n\n    if(r.correlation === \"yes\") correlationYes++;\n});\n\nconst averages = {};\nfor (const key in sumScores) {\n    averages[key] = sumScores[key] / count;\n}\n\nconst correlationRate = correlationYes / count;\n\nreturn [\n    {\n        json: {\n            count,\n            averages,\n            correlationRate,\n        }\n    }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        16
+      ],
+      "id": "7b275bb9-0bae-41e9-a7cd-023ac638b717",
+      "name": "Aggregator"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Beispiel: Alle Review-Daten in \"reviews\" Array\nconst reviews = $input.all().map(item => item.json); // n8n Input Items\n\n// Aggregation vorbereiten\nlet sumScores = {\n    clarity: 0,\n    structure: 0,\n    precision: 0,\n    tone: 0,\n    grammar: 0,\n    information: 0,\n    writing_quality_score: 0,\n    helpfulness_rate: 0\n};\n\nlet count = reviews.length;\nlet correlationYes = 0;\n\n// Summe berechnen\nreviews.forEach(r => {\n    sumScores.clarity += Number(r.output.clarity);\n    sumScores.structure += Number(r.output.structure);\n    sumScores.precision += Number(r.output.precision);\n    sumScores.tone += Number(r.output.tone);\n    sumScores.grammar += Number(r.output.grammar);\n    sumScores.information += Number(r.output.information);\n    sumScores.writing_quality_score += Number(r.output.writing_quality_score);\n    sumScores.helpfulness_rate += Number(r.output.helpfulness_rate);\n\n    if(r.output.correlation === \"yes\") correlationYes++;\n});\n\n// Durchschnitt berechnen\nconst averages = {};\nfor (const key in sumScores) {\n    averages[key] = sumScores[key] / count;\n}\n\n// Anteil der Reviews mit positiver Korrelation\nconst correlationRate = correlationYes / count;\n\nreturn [\n    {\n        json: {\n            count,\n            averages,\n            correlationRate,\n        }\n    }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        -112
+      ],
+      "id": "f2ae156c-97ba-43c5-8c30-418998369c09",
+      "name": "Aggregator1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  let rate = 0\n  if (item.json.review_helpful_votes) {\n      rate = item.json.review_helpful_votes / item.json.review_total_votes * 100\n  }\n  item.json.helpfulnes_rate = rate;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        16
+      ],
+      "id": "a97bf9a0-c32e-47ee-a55e-8f212aa2460a",
+      "name": "CalcRate"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert reviewer and writing-quality analyst. Your task is to evaluate the writing style of the provided review and determine whether a good writing style correlates with the helpfulness of the review.\n\nFirst, analyze the review text according to the following writing-quality criteria, each scored from 0 to 1:\n1. Clarity: How easy is the text to understand?\n2. Structure & coherence: Does the text follow a logical flow?\n3. Precision & relevance: Are the statements focused and informative?\n4. Tone & expression: Is the wording appropriate and varied?\n5. Grammar & correctness: How clean is the language?\n6. Informational value: Does the review provide helpful or meaningful details?\n\nThen:\n- Calculate an overall writing_quality_score as the average of all criteria.\n- Evaluate whether the writing quality plausibly correlates with the review’s helpfulness rate.\n- Provide a short explanation of your reasoning.\n\nOutput a JSON object with the following structure (no additional text):\n\n{\n  \"clarity\": number (0–1),\n  \"structure\": number (0–1),\n  \"precision\": number (0–1),\n  \"tone\": number (0–1),\n  \"grammar\": number (0–1),\n  \"information\": number (0–1),\n  \"writing_quality_score\": number (0–1),\n  \"helpfulness_rate\": number (0–1),\n  \"correlation\": \"yes\" | \"no\" | \"uncertain\",\n  \"comment\": \"short explanation\"\n}\n\nHere is the data for this review:\n\nreview_text: {{ $json.review_text }}\nreview_total_votes: {{ $json.review_total_votes }}\nreview_helpful_votes: {{ $json.review_helpful_votes }}\nhelpfulness_rate: {{ $json.helpfulnes_rate }}%",
+        "batching": {
+          "batchSize": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        240,
+        16
+      ],
+      "id": "d60bbf28-14f7-4358-9b54-4f9362a7814e",
+      "name": "Analyser"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert data analyst. Your task is to write a **short, concise report (about 5 sentences)** interpreting the aggregated review statistics provided below. Focus on whether there is a correlation between the writing quality of the reviews and their helpfulness to readers.\n\nHere are the aggregated values:\n\n- Number of reviews: {{ $json.count }}\n- Average clarity: {{ $json.averages.clarity }}\n- Average structure: {{ $json.averages.structure }}\n- Average precision: {{ $json.averages.precision }}\n- Average tone: {{ $json.averages.tone }}\n- Average grammar: {{ $json.averages.grammar }}\n- Average information: {{ $json.averages.information }}\n- Average writing_quality_score: {{ $json.averages.writing_quality_score }}\n- Average helpfulness_rate: {{ $json.averages.helpfulness_rate }}\n- Fraction of reviews with positive correlation: {{ $json.correlationRate }}\n\nWrite a **human-readable summary** including:\n- The overall quality of the reviews\n- Whether higher writing quality seems to correspond with higher helpfulness\n- Any notable observations from the data\n\nDo **not** output JSON, just a natural text report.\n",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        992,
+        16
+      ],
+      "id": "fbe8afdf-c6ae-497a-a83a-efb68b6763ac",
+      "name": "Generate Report"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert reviewer and writing-quality analyst. Your task is to evaluate the writing style of the provided review and determine whether a good writing style correlates with the helpfulness of the review.\n\nFirst, analyze the review text according to the following writing-quality criteria, each scored from 0 to 1:\n1. Clarity: How easy is the text to understand?\n2. Structure & coherence: Does the text follow a logical flow?\n3. Precision & relevance: Are the statements focused and informative?\n4. Tone & expression: Is the wording appropriate and varied?\n5. Grammar & correctness: How clean is the language?\n6. Informational value: Does the review provide helpful or meaningful details?\n\nThen:\n- Calculate an overall writing_quality_score as the average of all criteria.\n- Evaluate whether the writing quality plausibly correlates with the review’s helpfulness rate.\n- Provide a short explanation of your reasoning.\n\nOutput a JSON object with the following structure (no additional text):\n\n{\n  \"clarity\": number (0–1),\n  \"structure\": number (0–1),\n  \"precision\": number (0–1),\n  \"tone\": number (0–1),\n  \"grammar\": number (0–1),\n  \"information\": number (0–1),\n  \"writing_quality_score\": number (0–1),\n  \"helpfulness_rate\": number (0–1),\n  \"correlation\": \"yes\" | \"no\" | \"uncertain\",\n  \"comment\": \"short explanation\"\n}\n\nHere is the data for this review:\n\nreview_text: {{ $json.review_text }}\nreview_total_votes: {{ $json.review_total_votes }}\nreview_helpful_votes: {{ $json.review_helpful_votes }}\nhelpfulness_rate: {{ $json.helpfulnes_rate }}%",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        240,
+        -160
+      ],
+      "id": "eb42438d-657a-4501-91e7-d83b8a3e9d6c",
+      "name": "Analyser1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyser1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyser1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "CalcRate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Analyser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OutputFormatter": {
+      "main": [
+        [
+          {
+            "node": "Aggregator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregator": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregator1": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CalcRate": {
+      "main": [
+        [
+          {
+            "node": "Analyser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyser": {
+      "main": [
+        [
+          {
+            "node": "OutputFormatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyser1": {
+      "main": [
+        [
+          {
+            "node": "Aggregator1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2931619a-57a9-4adf-bcd3-72e7fa4e7603",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7b6003ea68d994fa24a4713e6216a47fa8a88b2c1ad86e4aea5e781ef95bc40d"
+  },
+  "id": "gow0gjif98JUSPJK",
+  "tags": []
+}
